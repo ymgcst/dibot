@@ -5,10 +5,10 @@
     "dev:watch": "ts-node-dev --respawn src/index.ts"
   },
   "dependencies": {
-    "discord.js": "^14.15.3",
-    "typescript": "^5.5.3"
+    "discord.js": "^14.15.3"
   },
   "devDependencies": {
+    "typescript": "^5.5.3",
     "@types/node": "^20.14.9",
     "prettier": "3.3.2",
     "ts-node": "^10.9.2",
