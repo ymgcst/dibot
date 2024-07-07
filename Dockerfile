@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM --platform=linux/amd64 node:18-alpine
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ RUN yarn install
 
 COPY . ./
 
-EXPOSE 3000
+ENV PORT 3000
 
 # 8. アプリケーションを起動
 CMD ["yarn", "dev"]
