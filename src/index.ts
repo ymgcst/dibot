@@ -1,6 +1,16 @@
-import { Client, Events, GatewayIntentBits } from 'discord.js'
+import { Client, Events, GatewayIntentBits, VoiceState } from 'discord.js'
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm'
-import console from 'console'
+import {
+  VoiceHistoryType,
+  calculateCallTime,
+  createVoiceHistoryTable,
+  insertVoiceHistory,
+  updateEndTime,
+} from './db/voiceHistory'
+import { formatSecondToString } from 'utils'
+
+// DBがない場合、テーブルを作成
+createVoiceHistoryTable()
 
 // SSMクライアントの初期化
 const ssmClient = new SSMClient({ region: 'ap-northeast-1' })
@@ -48,7 +58,9 @@ client.once(Events.ClientReady, async readyClient => {
   })
 })
 
-client.login(discordToken)
+client.login(discordToken).then(() => {
+  console.log('🐻Bot is ready')
+})
 
 // メッセージ受信
 client.on('messageCreate', async message => {
@@ -64,44 +76,63 @@ client.on('messageCreate', async message => {
 })
 
 // ボイスチャンネルのステータス変更
-client.on('voiceStateUpdate', async (oldState, newState) => {
-  console.log('通話開始記録')
+client.on('voiceStateUpdate', async (oldState: VoiceState, newState) => {
   if (oldState.member === null || newState.member === null) {
     return
   }
-  // const date = Date.now()
-  // if (oldState.channelId === null && newState.channelId !== null) {
-  //   const userId = oldState.member.user.id
-  //   dateMap[userId] = date
-  //   console.log(dateMap)
-  //   return oldState.member.guild.channels.cache
-  //     .get(process.env.NOTICE_MTG_TIME_CHANNEL_ID)
-  //     .send(`**参加** ${oldState.member.user.username} が入室しました。`)
-  // }
-  // if (oldState.channelId !== null && newState.channelId === null) {
-  //   console.log('通話終了記録')
-  //   let text = `**退出** ${newState.member.user.username} が退出しました。`
-  //   const userId = newState.member.user.id
-  //   if (dateMap[userId] === undefined) {
-  //     // 通常あり得ないがサーバーダウンなどを考慮してログ出力しておく
-  //     console.log('ERROR 退室者の入室時間が記録されていない')
-  //   } else {
-  //     const dateItem = dateMap[userId]
-  //     console.log(dateItem)
-  //     const enterDate = dateItem
-  //     console.log(enterDate)
-  //     const srcSec = Math.floor((date - enterDate) / 1000)
-  //     console.log(srcSec)
-  //     const hours = Math.floor(srcSec / 3600)
-  //     console.log(hours)
-  //     const minutes = Math.floor((srcSec % 3600) / 60)
-  //     console.log(minutes)
-  //     text += ` 通話時間：${hours}時間${minutes}分`
-  //     dateMap[userId] = undefined
-  //     console.log(dateMap)
-  //   }
-  //   return oldState.member.guild.channels.cache
-  //     .get(process.env.NOTICE_MTG_TIME_CHANNEL_ID)
-  //     .send(text)
-  // }
+
+  // 対象のギルドの「通話履歴」チャンネルのIDを取得
+  const guild = await client.guilds.fetch(oldState.guild.id)
+  const voiceHistoryChannelId =
+    guild.channels.cache.find(channel => channel.name === '通話履歴')?.id || ''
+
+  if (oldState.channelId === null && newState.channelId !== null) {
+    // 通話開始
+    const voiceHistory: VoiceHistoryType = {
+      userId: newState.member.user.id,
+      userName: newState.member.user.username,
+      guildId: newState.guild.id,
+      channelId: newState.channelId || '',
+      voiceHistoryChannelId: voiceHistoryChannelId || '',
+      startTime: new Date().toISOString(),
+      endTime: null,
+    }
+    // 通話開始時にinsert
+    insertVoiceHistory(voiceHistory)
+    // 「通話履歴」チャンネルに通知
+    const channel = await client.channels.fetch(voiceHistoryChannelId)
+    if (channel!.isTextBased()) {
+      channel.send(`${voiceHistory.userName} が入室しました。`)
+    }
+  } else if (oldState.channelId !== null && newState.channelId === null) {
+    // 通話終了
+    const voiceHistory: VoiceHistoryType = {
+      userId: oldState.member.user.id,
+      userName: oldState.member.user.username,
+      guildId: oldState.guild.id,
+      channelId: oldState.channelId || '',
+      voiceHistoryChannelId: voiceHistoryChannelId || '',
+      startTime: new Date().toISOString(),
+      endTime: null,
+    }
+    // 通話終了時にupdate(通話時間を記録)
+    updateEndTime(
+      voiceHistory.userId,
+      voiceHistory.guildId,
+      voiceHistory.channelId,
+      new Date().toISOString(),
+    )
+    // 「通話履歴」チャンネルに通知
+    const callTime = await calculateCallTime(
+      voiceHistory.userId,
+      voiceHistory.guildId,
+      voiceHistory.channelId,
+    )
+    const channel = await client.channels.fetch(voiceHistoryChannelId)
+    if (channel!.isTextBased()) {
+      channel.send(
+        `${voiceHistory.userName} が退室しました。通話時間: ${formatSecondToString(callTime)}`,
+      )
+    }
+  }
 })
