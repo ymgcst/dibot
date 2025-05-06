@@ -1,4 +1,11 @@
-import { Client, Events, GatewayIntentBits, VoiceState } from 'discord.js'
+import {
+  Channel,
+  Client,
+  Events,
+  GatewayIntentBits,
+  TextChannel,
+  VoiceState,
+} from 'discord.js'
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm'
 import {
   VoiceHistoryType,
@@ -33,7 +40,7 @@ const getDiscordToken = async () => {
 
 const discordToken = await getDiscordToken()
 
-const client = new Client({
+const discordClient = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
@@ -43,11 +50,11 @@ const client = new Client({
   ],
 })
 
-client.once(Events.ClientReady, async readyClient => {
+discordClient.once(Events.ClientReady, async readyClient => {
   // 参加しているすべてのギルドのIDを取得
-  const oauth2guilds = await client.guilds.fetch()
+  const oauth2guilds = await discordClient.guilds.fetch()
   oauth2guilds.forEach(async oauth2guild => {
-    const guild = await client.guilds.fetch(oauth2guild.id)
+    const guild = await discordClient.guilds.fetch(oauth2guild.id)
     // チャンネル名の一覧を取得
     const channels = guild.channels.cache.map(channel => channel.name)
 
@@ -58,31 +65,31 @@ client.once(Events.ClientReady, async readyClient => {
   })
 })
 
-client.login(discordToken).then(() => {
+discordClient.login(discordToken).then(() => {
   console.log('🐻Bot is ready')
 })
 
 // メッセージ受信
-client.on('messageCreate', async message => {
+discordClient.on('messageCreate', async message => {
   // Bot自身のメッセージは無視、userがnullの場合も無視
-  if (message.author.bot || !client.user) {
+  if (message.author.bot || !discordClient.user) {
     return
   }
 
-  if (message.mentions.has(client.user.id)) {
+  if (message.mentions.has(discordClient.user.id)) {
     message.reply('ん？')
     return
   }
 })
 
 // ボイスチャンネルのステータス変更
-client.on('voiceStateUpdate', async (oldState: VoiceState, newState) => {
+discordClient.on('voiceStateUpdate', async (oldState, newState) => {
   if (oldState.member === null || newState.member === null) {
     return
   }
 
   // 対象のギルドの「通話履歴」チャンネルのIDを取得
-  const guild = await client.guilds.fetch(oldState.guild.id)
+  const guild = await discordClient.guilds.fetch(oldState.guild.id)
   const voiceHistoryChannelId =
     guild.channels.cache.find(channel => channel.name === '通話履歴')?.id || ''
 
@@ -93,15 +100,17 @@ client.on('voiceStateUpdate', async (oldState: VoiceState, newState) => {
       userName: newState.member.user.username,
       guildId: newState.guild.id,
       channelId: newState.channelId || '',
-      voiceHistoryChannelId: voiceHistoryChannelId || '',
+      voiceHistoryChannelId,
       startTime: new Date().toISOString(),
       endTime: null,
     }
     // 通話開始時にinsert
     insertVoiceHistory(voiceHistory)
     // 「通話履歴」チャンネルに通知
-    const channel = await client.channels.fetch(voiceHistoryChannelId)
-    if (channel!.isTextBased()) {
+    const channel = (await discordClient.channels.fetch(
+      voiceHistoryChannelId,
+    )) as Channel
+    if (channel.isTextBased()) {
       channel.send(`${voiceHistory.userName} が入室しました。`)
     }
   } else if (oldState.channelId !== null && newState.channelId === null) {
@@ -128,8 +137,10 @@ client.on('voiceStateUpdate', async (oldState: VoiceState, newState) => {
       voiceHistory.guildId,
       voiceHistory.channelId,
     )
-    const channel = await client.channels.fetch(voiceHistoryChannelId)
-    if (channel!.isTextBased()) {
+    const channel = (await discordClient.channels.fetch(
+      voiceHistoryChannelId,
+    )) as Channel
+    if (channel.isTextBased()) {
       channel.send(
         `${voiceHistory.userName} が退室しました。通話時間: ${formatSecondToString(callTime)}`,
       )
