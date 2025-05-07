@@ -3,6 +3,7 @@ import sqlite3 from 'sqlite3'
 export type VoiceHistoryType = {
   userId: string
   userName: string
+  displayName: string
   guildId: string
   channelId: string
   voiceHistoryChannelId: string
@@ -18,6 +19,7 @@ export const createVoiceHistoryTable = () => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id TEXT,
       user_name TEXT,
+      display_name TEXT,
       guild_id TEXT,
       channel_id TEXT,
       voice_history_channel_id TEXT,
@@ -30,9 +32,10 @@ export const createVoiceHistoryTable = () => {
 export const insertVoiceHistory = (voiceHistory: VoiceHistoryType) => {
   db.serialize(() => {
     db.run(
-      `INSERT INTO t_voice_history (user_id, user_name, guild_id, channel_id, voice_history_channel_id, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO t_voice_history (user_id, user_name, display_name, guild_id, channel_id, voice_history_channel_id, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       voiceHistory.userId,
       voiceHistory.userName,
+      voiceHistory.displayName,
       voiceHistory.guildId,
       voiceHistory.channelId,
       voiceHistory.voiceHistoryChannelId,

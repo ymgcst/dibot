@@ -98,6 +98,7 @@ discordClient.on('voiceStateUpdate', async (oldState, newState) => {
     const voiceHistory: VoiceHistoryType = {
       userId: newState.member.user.id,
       userName: newState.member.user.username,
+      displayName: newState.member.displayName,
       guildId: newState.guild.id,
       channelId: newState.channelId || '',
       voiceHistoryChannelId,
@@ -111,13 +112,14 @@ discordClient.on('voiceStateUpdate', async (oldState, newState) => {
       voiceHistoryChannelId,
     )) as Channel
     if (channel.isTextBased()) {
-      channel.send(`${voiceHistory.userName} が入室しました。`)
+      channel.send(`${voiceHistory.displayName} が入室しました。`)
     }
   } else if (oldState.channelId !== null && newState.channelId === null) {
     // 通話終了
     const voiceHistory: VoiceHistoryType = {
       userId: oldState.member.user.id,
       userName: oldState.member.user.username,
+      displayName: oldState.member.displayName,
       guildId: oldState.guild.id,
       channelId: oldState.channelId || '',
       voiceHistoryChannelId: voiceHistoryChannelId || '',
@@ -142,7 +144,7 @@ discordClient.on('voiceStateUpdate', async (oldState, newState) => {
     )) as Channel
     if (channel.isTextBased()) {
       channel.send(
-        `${voiceHistory.userName} が退室しました。通話時間: ${formatSecondToString(callTime)}`,
+        `${voiceHistory.displayName} が退室しました。通話時間: ${formatSecondToString(callTime)}`,
       )
     }
   }

@@ -10,5 +10,4 @@ COPY . ./
 
 ENV PORT 3000
 
-# 8. アプリケーションを起動
 CMD ["yarn", "dev"]
