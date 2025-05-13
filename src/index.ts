@@ -37,6 +37,7 @@ const getDiscordToken = () => {
 
 const discordToken = getDiscordToken()
 
+console.log('new Client...')
 const discordClient = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -47,6 +48,7 @@ const discordClient = new Client({
   ],
 })
 
+console.log('discordClient.once...')
 discordClient.once(Events.ClientReady, async readyClient => {
   // 参加しているすべてのギルドのIDを取得
   const oauth2guilds = await discordClient.guilds.fetch()
@@ -62,6 +64,7 @@ discordClient.once(Events.ClientReady, async readyClient => {
   })
 })
 
+console.log('discordClient.login...')
 discordClient.login(discordToken).then(() => {
   console.log('🐻Bot is ready')
 })
