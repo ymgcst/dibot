@@ -1,11 +1,4 @@
-import {
-  Channel,
-  Client,
-  Events,
-  GatewayIntentBits,
-  TextChannel,
-  VoiceState,
-} from 'discord.js'
+import { Channel, Client, Events, GatewayIntentBits } from 'discord.js'
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm'
 import {
   VoiceHistoryType,
@@ -15,6 +8,8 @@ import {
   updateEndTime,
 } from './db/voiceHistory'
 import { formatSecondToString } from 'utils'
+
+console.log('🖥Server is starting...')
 
 // DBがない場合、テーブルを作成
 createVoiceHistoryTable()
