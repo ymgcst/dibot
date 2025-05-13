@@ -8,6 +8,6 @@ RUN yarn install
 
 COPY . ./
 
-ENV PORT 3000
+ENV PORT 8080
 
 CMD ["yarn", "dev"]
