@@ -12,8 +12,6 @@ import http from 'http'
 
 dotenv.config()
 
-console.log('🖥Server is starting...')
-
 // CloudRunの要件で何かしらHTTPサーバを立ててないとエラーでるので、実際は必要ないが以下でHTTPサーバを立てている
 const port = process.env.PORT || 3000
 const server = http.createServer((_req, res) => {
@@ -30,14 +28,13 @@ createVoiceHistoryTable()
 
 const getDiscordToken = () => {
   if (!process.env.DISCORD_TOKEN) {
-    console.error('DISCORD_TOKEN is empty')
+    console.error('🔴 DISCORD_TOKEN is empty')
   }
   return process.env.DISCORD_TOKEN || ''
 }
 
 const discordToken = getDiscordToken()
 
-console.log('new Client...')
 const discordClient = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -48,7 +45,6 @@ const discordClient = new Client({
   ],
 })
 
-console.log('discordClient.once...')
 discordClient.once(Events.ClientReady, async readyClient => {
   // 参加しているすべてのギルドのIDを取得
   const oauth2guilds = await discordClient.guilds.fetch()
@@ -64,10 +60,14 @@ discordClient.once(Events.ClientReady, async readyClient => {
   })
 })
 
-console.log('discordClient.login...')
-discordClient.login(discordToken).then(() => {
-  console.log('🐻Bot is ready')
-})
+discordClient
+  .login(discordToken)
+  .then(() => {
+    console.log('✅ Bot is ready')
+  })
+  .catch(error => {
+    console.error('🔴 Discord bot login error', error)
+  })
 
 // メッセージ受信
 discordClient.on('messageCreate', async message => {
