@@ -1,5 +1,4 @@
 import { Channel, Client, Events, GatewayIntentBits } from 'discord.js'
-import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm'
 import {
   VoiceHistoryType,
   calculateCallTime,
@@ -8,32 +7,23 @@ import {
   updateEndTime,
 } from './db/voiceHistory'
 import { formatSecondToString } from 'utils'
+import dotenv from 'dotenv'
+
+dotenv.config()
 
 console.log('🖥Server is starting...')
 
 // DBがない場合、テーブルを作成
 createVoiceHistoryTable()
 
-// SSMクライアントの初期化
-const ssmClient = new SSMClient({ region: 'ap-northeast-1' })
-
-// AWS Parameter StoreからDiscordのBot Tokenを取得
-const getDiscordToken = async () => {
-  const ssmGetCommand = new GetParameterCommand({
-    Name: '/dibot/discord-token',
-    WithDecryption: true,
-  })
-
-  try {
-    const res = await ssmClient.send(ssmGetCommand)
-    return res.Parameter?.Value || ''
-  } catch (error) {
-    console.error('Error fetching Discord token:', error)
-    return ''
+const getDiscordToken = () => {
+  if (!process.env.DISCORD_TOKEN) {
+    console.error('DISCORD_TOKEN is empty')
   }
+  return process.env.DISCORD_TOKEN || ''
 }
 
-const discordToken = await getDiscordToken()
+const discordToken = getDiscordToken()
 
 const discordClient = new Client({
   intents: [
