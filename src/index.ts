@@ -8,10 +8,22 @@ import {
 } from './db/voiceHistory'
 import { formatSecondToString } from 'utils'
 import dotenv from 'dotenv'
+import http from 'http'
 
 dotenv.config()
 
 console.log('🖥Server is starting...')
+
+// CloudRunの要件で何かしらHTTPサーバを立ててないとエラーでるので、実際は必要ないが以下でHTTPサーバを立てている
+const port = process.env.PORT || 3000
+const server = http.createServer((_req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' })
+  res.end('Bot is running\n')
+})
+
+server.listen(port, () => {
+  console.log(`✅ HTTP server is listening on port ${port}`)
+})
 
 // DBがない場合、テーブルを作成
 createVoiceHistoryTable()
