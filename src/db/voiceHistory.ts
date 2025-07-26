@@ -1,4 +1,5 @@
-import sqlite3 from 'sqlite3'
+import { getFirestoreInstance } from './firebase'
+import { Timestamp } from 'firebase-admin/firestore'
 
 export type VoiceHistoryType = {
   userId: string
@@ -11,85 +12,108 @@ export type VoiceHistoryType = {
   endTime: string | null
 }
 
-const db = new sqlite3.Database('./db/dibot.db')
+let db: any = null
+const voiceHistoryCollection = 'voice_history'
 
-export const createVoiceHistoryTable = () => {
-  db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS t_voice_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id TEXT,
-      user_name TEXT,
-      display_name TEXT,
-      guild_id TEXT,
-      channel_id TEXT,
-      voice_history_channel_id TEXT,
-      start_time TEXT,
-      end_time TEXT
-    )`)
-  })
+// Firestoreインスタンスを遅延取得
+const getDb = () => {
+  if (!db) {
+    db = getFirestoreInstance()
+  }
+  return db
 }
 
-export const insertVoiceHistory = (voiceHistory: VoiceHistoryType) => {
-  db.serialize(() => {
-    db.run(
-      `INSERT INTO t_voice_history (user_id, user_name, display_name, guild_id, channel_id, voice_history_channel_id, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      voiceHistory.userId,
-      voiceHistory.userName,
-      voiceHistory.displayName,
-      voiceHistory.guildId,
-      voiceHistory.channelId,
-      voiceHistory.voiceHistoryChannelId,
-      voiceHistory.startTime,
-      voiceHistory.endTime,
-    )
-  })
+export const insertVoiceHistory = async (voiceHistory: VoiceHistoryType) => {
+  try {
+    const firestoreDb = getDb()
+    await firestoreDb.collection(voiceHistoryCollection).add({
+      userId: voiceHistory.userId,
+      userName: voiceHistory.userName,
+      displayName: voiceHistory.displayName,
+      guildId: voiceHistory.guildId,
+      channelId: voiceHistory.channelId,
+      voiceHistoryChannelId: voiceHistory.voiceHistoryChannelId,
+      startTime: Timestamp.fromDate(new Date(voiceHistory.startTime)),
+      endTime: null,
+      createdAt: Timestamp.now(),
+    })
+  } catch (error) {
+    console.error('Error inserting voice history:', error)
+  }
 }
 
-export const updateEndTime = (
+export const updateEndTime = async (
   userId: string,
   guildId: string,
   channelId: string,
   endTime: string,
 ) => {
-  db.serialize(() => {
-    db.run(
-      `UPDATE t_voice_history SET end_time = ? WHERE user_id = ? AND guild_id = ? AND channel_id = ? AND end_time IS NULL`,
-      [endTime, userId, guildId, channelId],
-      err => {
-        if (err) {
-          console.error('Error updating end_time:', err)
-        }
-      },
-    )
-  })
+  try {
+    const firestoreDb = getDb()
+    // すべてのドキュメントを取得してフィルタリング
+    const snapshot = await firestoreDb.collection(voiceHistoryCollection).get()
+
+    for (const doc of snapshot.docs) {
+      const data = doc.data()
+      if (
+        data.userId === userId &&
+        data.guildId === guildId &&
+        data.channelId === channelId &&
+        data.endTime === null
+      ) {
+        await doc.ref.update({
+          endTime: Timestamp.fromDate(new Date(endTime)),
+          updatedAt: Timestamp.now(),
+        })
+        break // 最初に見つかったものを更新して終了
+      }
+    }
+  } catch (error) {
+    console.error('Error updating end_time:', error)
+  }
 }
 
-export const calculateCallTime = (
+export const calculateCallTime = async (
   userId: string,
   guildId: string,
   channelId: string,
 ): Promise<number> => {
-  return new Promise((resolve, reject) => {
-    db.serialize(() => {
-      db.get(
-        `SELECT start_time, end_time FROM t_voice_history WHERE user_id = ? AND guild_id = ? AND channel_id = ? AND end_time IS NOT NULL ORDER BY id DESC`,
-        userId,
-        guildId,
-        channelId,
-        (err: any, row: any) => {
-          if (err) {
-            return reject(err)
-          }
-          if (!row) {
-            return resolve(0)
-          }
-          const startTime = new Date(row.start_time)
-          const endTime = new Date(row.end_time)
-          const diff = endTime.getTime() - startTime.getTime()
-          // msからsに変換
-          resolve(Math.floor(diff / 1000))
-        },
-      )
-    })
-  })
+  try {
+    const firestoreDb = getDb()
+    // すべてのドキュメントを取得してフィルタリング
+    const snapshot = await firestoreDb.collection(voiceHistoryCollection).get()
+
+    // 最新の完了した通話を探す
+    let latestCall = null
+    for (const doc of snapshot.docs) {
+      const data = doc.data()
+      if (
+        data.userId === userId &&
+        data.guildId === guildId &&
+        data.channelId === channelId &&
+        data.endTime
+      ) {
+        if (
+          !latestCall ||
+          data.endTime.toDate() > latestCall.endTime.toDate()
+        ) {
+          latestCall = data
+        }
+      }
+    }
+
+    if (!latestCall || !latestCall.startTime || !latestCall.endTime) {
+      return 0
+    }
+
+    const startTime = latestCall.startTime.toDate()
+    const endTime = latestCall.endTime.toDate()
+    const diff = endTime.getTime() - startTime.getTime()
+
+    // msからsに変換
+    return Math.floor(diff / 1000)
+  } catch (error) {
+    console.error('Error calculating call time:', error)
+    return 0
+  }
 }

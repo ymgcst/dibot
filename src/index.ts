@@ -2,7 +2,6 @@ import { Channel, Client, Events, GatewayIntentBits } from 'discord.js'
 import {
   VoiceHistoryType,
   calculateCallTime,
-  createVoiceHistoryTable,
   insertVoiceHistory,
   updateEndTime,
 } from './db/voiceHistory'
@@ -22,9 +21,6 @@ const server = http.createServer((_req, res) => {
 server.listen(port, () => {
   console.log(`✅ HTTP server is listening on port ${port}`)
 })
-
-// DBがない場合、テーブルを作成
-createVoiceHistoryTable()
 
 const getDiscordToken = () => {
   if (!process.env.DISCORD_TOKEN) {
@@ -106,7 +102,7 @@ discordClient.on('voiceStateUpdate', async (oldState, newState) => {
       endTime: null,
     }
     // 通話開始時にinsert
-    insertVoiceHistory(voiceHistory)
+    await insertVoiceHistory(voiceHistory)
     // 「通話履歴」チャンネルに通知
     const channel = (await discordClient.channels.fetch(
       voiceHistoryChannelId,
@@ -127,7 +123,7 @@ discordClient.on('voiceStateUpdate', async (oldState, newState) => {
       endTime: null,
     }
     // 通話終了時にupdate(通話時間を記録)
-    updateEndTime(
+    await updateEndTime(
       voiceHistory.userId,
       voiceHistory.guildId,
       voiceHistory.channelId,
