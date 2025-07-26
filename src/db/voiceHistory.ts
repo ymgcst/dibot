@@ -65,7 +65,7 @@ export const updateEndTime = async (
           endTime: Timestamp.fromDate(new Date(endTime)),
           updatedAt: Timestamp.now(),
         })
-        break // 最初に見つかったものを更新して終了
+        break
       }
     }
   } catch (error) {
