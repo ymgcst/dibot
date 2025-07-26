@@ -11,9 +11,22 @@ import http from 'http'
 
 dotenv.config()
 
-// CloudRunの要件で何かしらHTTPサーバを立ててないとエラーでるので、実際は必要ないが以下でHTTPサーバを立てている
 const port = process.env.PORT || 3000
-const server = http.createServer((_req, res) => {
+const server = http.createServer((req, res) => {
+  // GASからの定期的なリクエストを待ち受けるエンドポイント
+  if (req.url === '/ping' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        message: 'Bot is alive and running',
+      }),
+    )
+    return
+  }
+
+  // デフォルトのレスポンス
   res.writeHead(200, { 'Content-Type': 'text/plain' })
   res.end('Bot is running\n')
 })
